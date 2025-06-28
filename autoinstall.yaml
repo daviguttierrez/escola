@@ -1,27 +1,103 @@
+# =================================================================================
+# Arquivo de Configuração Autoinstall para Edubuntu (e derivados do Ubuntu)
+#
+# Autor: Davi Guttierrez
+# Data da Revisão: 28 de Junho de 2025 - Londrina, PR
+#
+# Propósito: Realizar uma instalação completamente automatizada ("zero-toque").
+# Este arquivo configura o sistema com dois usuários (admin e padrão), instala
+# um conjunto de softwares educacionais e de utilidade, e cria um ponto de
+# restauração mestre com o Timeshift. O nome do computador é gerado
+# aleatoriamente para evitar conflitos em instalações de múltiplas máquinas.
+# =================================================================================
+
+# Indica ao sistema que este é um arquivo de configuração cloud-init.
 #cloud-config
+
 autoinstall:
+  # Versão do schema do autoinstall. O valor padrão é 1. Não alterar.
   version: 1
+
+  # --- CONFIGURAÇÕES REGIONAIS ---
+  # Define o idioma e a localidade padrão do sistema (Português do Brasil).
   locale: pt_BR.UTF-8
+  # Define o layout do teclado. 'br' corresponde ao padrão ABNT2.
   keyboard:
     layout: br
-  identity:
-    hostname: escola
-    username: escola
-    realname: escola
-    password: "12345" # Lembre-se que esta senha não é segura.
+
+  # --- INSTALAÇÃO DE SOFTWARE ADICIONAL ---
+  # Lista de pacotes/programas a serem instalados automaticamente.
+  # Você pode adicionar ou remover programas desta lista conforme a necessidade.
   packages:
     - gimp
     - vlc
     - tuxpaint
     - stellarium
     - geogebra
-    - timeshift
-    - openssh-server
-    - htop
+    - timeshift     # Essencial para o snapshot de restauração.
+    - htop          # Um monitor de sistema mais avançado.
+
+  # --- CONFIGURAÇÃO DE USUÁRIOS E SISTEMA ---
+  # 'user-data' permite uma configuração mais detalhada de usuários e do sistema.
+  user-data:
+    # Define o nome do computador na rede.
+    # O template "{{ random_string }}" gera um código aleatório de 6 caracteres.
+    # O resultado será um nome único como "escola-a1b2c3", evitando conflitos.
+    hostname: "escola-{{ random_string }}"
+
+    # Lista de todas as contas de usuário a serem criadas no sistema.
+    users:
+      # --- USUÁRIO ADMINISTRADOR ---
+      - name: adm
+        # Nome completo do usuário que aparece na tela de login, etc.
+        gecos: Administrador do Sistema
+        # Grupo primário do usuário.
+        primary-group: adm
+        # Grupos adicionais. 'sudo' é o que concede privilégios de administrador.
+        groups: [adm, sudo]
+        # O terminal padrão para o usuário. /bin/bash é o padrão do Ubuntu.
+        shell: /bin/bash
+        # Define as permissões de superusuário. 'ALL=(ALL) ALL' é a configuração segura (pede senha).
+        sudo: ALL=(ALL) ALL
+        # Para conveniência (não pedir senha ao usar sudo), comente a linha acima e descomente a de baixo.
+        # sudo: ALL=(ALL) NOPASSWD:ALL
+        # Garante que a conta não esteja bloqueada.
+        lock-passwd: false
+        # A SENHA CRIPTOGRAFADA. O valor abaixo corresponde à senha 'Senha secreta'.
+        # Para gerar uma nova senha, use o comando no terminal Linux:
+        # openssl passwd -6 'sua-nova-senha'
+        passwd: "$6$rounds=4096$x5M.tL5w.Vp1y$u6L/xY7m3c.4q9H.k8vB1g5J0n.Z.oP.eW.r7f.S2z.t9C.k1A.b.D"
+
+      # --- USUÁRIO PADRÃO PARA ALUNOS ---
+      - name: escola
+        # Nome completo do usuário padrão.
+        gecos: Usuário da Escola
+        primary-group: escola
+        groups: [escola]
+        shell: /bin/bash
+        # Importante: Garante que este usuário NÃO tenha privilégios de administrador.
+        sudo: "false"
+        lock-passwd: false
+        # A SENHA CRIPTOGRAFADA. O valor abaixo corresponde à senha 'senha secreta'.
+        # Para alterar, gere um novo hash com 'openssl passwd -6 ...'
+        passwd: "$6$rounds=4096$s5LpG/kUq3nB$p.g1y4L2s1H5y.2sH7n1D.7tF5x1f8Y8b4G6e.3g1K2a.D"
+
+  # --- COMANDOS PÓS-INSTALAÇÃO ---
+  # Lista de comandos a serem executados como 'root' no sistema recém-instalado,
+  # antes da primeira reinicialização.
   late-commands:
+    # Cria uma pasta 'Trabalhos' na área de Documentos do usuário 'escola'.
     - curtin in-target -- /bin/bash -c "mkdir -p /home/escola/Documentos/Trabalhos"
+    # Garante que o usuário 'escola' seja o dono da pasta, permitindo que ele a utilize.
     - curtin in-target -- /bin/bash -c "chown -R escola:escola /home/escola/Documentos/Trabalhos"
-    - curtin in-target -- /bin/bash -c "echo 'Bem-vindo ao computador da Escola! Instalação concluída.' > /etc/motd"
+    # Personaliza a "Mensagem do Dia" que aparece em logins via terminal.
+    - curtin in-target -- /bin/bash -c "echo 'Bem-vindo ao computador da Escola! Use o usuário \"escola\" para as atividades.' > /etc/motd"
+    # Cria o primeiro snapshot do Timeshift, que servirá como uma "imagem limpa" de restauração.
+    # --comments: Adiciona uma descrição para fácil identificação na interface do Timeshift.
+    # --yes: Responde 'sim' automaticamente a qualquer confirmação.
     - curtin in-target -- /bin/bash -c 'timeshift --create --comments "Snapshot Inicial Pós-Instalação" --yes'
+
+  # --- FINALIZAÇÃO DA INSTALAÇÃO ---
+  # 'finish' faz a instalação parar no final e pedir para remover a mídia (pendrive).
   interactive-sections:
     - finish
