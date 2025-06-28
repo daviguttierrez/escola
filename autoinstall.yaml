@@ -1,0 +1,27 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: pt_BR.UTF-8
+  keyboard:
+    layout: br
+  identity:
+    hostname: escola
+    username: escola
+    realname: escola
+    password: "12345" # Lembre-se que esta senha não é segura.
+  packages:
+    - gimp
+    - vlc
+    - tuxpaint
+    - stellarium
+    - geogebra
+    - timeshift
+    - openssh-server
+    - htop
+  late-commands:
+    - curtin in-target -- /bin/bash -c "mkdir -p /home/escola/Documentos/Trabalhos"
+    - curtin in-target -- /bin/bash -c "chown -R escola:escola /home/escola/Documentos/Trabalhos"
+    - curtin in-target -- /bin/bash -c "echo 'Bem-vindo ao computador da Escola! Instalação concluída.' > /etc/motd"
+    - curtin in-target -- /bin/bash -c 'timeshift --create --comments "Snapshot Inicial Pós-Instalação" --yes'
+  interactive-sections:
+    - finish
